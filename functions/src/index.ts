@@ -1,32 +1,43 @@
 /**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
+ * Firebase Cloud Functions
+ * 
+ * Modular structure:
+ * - models/: Data models and interfaces
+ * - services/: Database operations and business logic
+ * - controllers/: HTTP function handlers
+ * - utils/: Helper functions and utilities
  */
 
-import {setGlobalOptions} from "firebase-functions";
-import {onRequest} from "firebase-functions/https";
-import * as logger from "firebase-functions/logger";
+import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
 
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
+// Initialize Firebase Admin
+admin.initializeApp();
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({maxInstances: 10});
+// Export authentication functions
+export {
+  registerUser,
+  loginUser,
+} from './controllers/auth.controller';
 
-export const helloWorld = onRequest((request, response) => {
-  logger.info("Hello logs!", {structuredData: true});
-  response.send("Hello from Firebase!");
+// Export user management functions
+export {
+  getUserById,
+  updateUserProfile,
+  getUsersByRole,
+  getAllUsers,
+  deleteUser,
+} from './controllers/user.controller';
+
+// Test function to verify deployment
+export const helloWorld = functions.https.onRequest((request, response) => {
+  functions.logger.info('Hello logs!', { structuredData: true });
+  response.json({
+    message: 'Emergency Health System API - Firebase Functions Active!',
+    version: '1.0.0',
+    endpoints: {
+      auth: ['registerUser', 'loginUser'],
+      users: ['getUserById', 'updateUserProfile', 'getUsersByRole', 'getAllUsers', 'deleteUser'],
+    },
+  });
 });
