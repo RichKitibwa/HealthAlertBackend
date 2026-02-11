@@ -1,6 +1,5 @@
 /**
  * Validation Utilities
- * Common validation functions used across the application
  */
 
 /**
@@ -22,7 +21,7 @@ export function validateRequiredFields(
   const missing: string[] = [];
 
   for (const field of fields) {
-    if (!data[field] || data[field].trim() === '') {
+    if (!data[field] || data[field].trim() === "") {
       missing.push(field);
     }
   }
@@ -37,7 +36,7 @@ export function validateRequiredFields(
  * Validate user role
  */
 export function isValidUserRole(role: string): boolean {
-  const validRoles = ['VHT', 'Ambulance Driver', 'Clinic Staff', 'Admin'];
+  const validRoles = ["VHT", "Ambulance Driver", "Clinic Staff", "Admin"];
   return validRoles.includes(role);
 }
 
@@ -45,6 +44,6 @@ export function isValidUserRole(role: string): boolean {
  * Sanitize string input
  */
 export function sanitizeString(input: string): string {
-  return input.trim().replace(/[<>]/g, '');
+  return input.trim().replace(/[<>]/g, "");
 }
 

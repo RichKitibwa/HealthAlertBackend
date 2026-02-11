@@ -1,6 +1,6 @@
-import * as functions from 'firebase-functions';
-import { UserService } from '../services/user.service';
-import { CreateUserData } from '../models/user.model';
+import * as functions from "firebase-functions";
+import {UserService} from "../services/user.service";
+import {CreateUserData} from "../models/user.model";
 
 const userService = new UserService();
 
@@ -14,22 +14,30 @@ const userService = new UserService();
  */
 export const registerUser = functions.https.onCall(async (request) => {
   try {
-    const { firstName, lastName, phoneNumber, role } = request.data;
+    const {firstName, lastName, phoneNumber, role, pinHash, specialty, workplace} = request.data;
 
     // Validate input
-    if (!firstName || !lastName || !phoneNumber || !role) {
+    if (!firstName || !lastName || !phoneNumber || !role || !pinHash) {
       throw new functions.https.HttpsError(
-        'invalid-argument',
-        'Missing required fields: firstName, lastName, phoneNumber, role'
+        "invalid-argument",
+        "Missing required fields: firstName, lastName, phoneNumber, role, pinHash"
       );
     }
 
     // Validate role
-    const validRoles = ['VHT', 'Ambulance Driver', 'Clinic Staff', 'Admin'];
+    const validRoles = ["VHT", "Ambulance Driver", "Clinic Staff", "Admin"];
     if (!validRoles.includes(role)) {
       throw new functions.https.HttpsError(
-        'invalid-argument',
-        'Invalid role. Must be one of: ' + validRoles.join(', ')
+        "invalid-argument",
+        "Invalid role. Must be one of: " + validRoles.join(", ")
+      );
+    }
+
+    // For Clinic Staff, specialty and workplace are required
+    if (role === "Clinic Staff" && (!specialty || !workplace)) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Specialty and workplace are required for Clinic Staff"
       );
     }
 
@@ -38,40 +46,43 @@ export const registerUser = functions.https.onCall(async (request) => {
       lastName,
       phoneNumber,
       role,
+      pinHash,
+      specialty,
+      workplace,
     };
 
     const user = await userService.createUser(userData);
 
-    functions.logger.info('User registered successfully', { userId: user.id });
+    functions.logger.info("User registered successfully", {userId: user.id});
 
     return {
       success: true,
-      message: 'User registered successfully',
+      message: "User registered successfully",
       user,
     };
   } catch (error: any) {
-    functions.logger.error('Error registering user', error);
+    functions.logger.error("Error registering user", error);
 
-    if (error.message.includes('already exists')) {
-      throw new functions.https.HttpsError('already-exists', error.message);
+    if (error.message.includes("already exists")) {
+      throw new functions.https.HttpsError("already-exists", error.message);
     }
 
-    throw new functions.https.HttpsError('internal', error.message);
+    throw new functions.https.HttpsError("internal", error.message);
   }
 });
 
 /**
- * Login user by phone number
+ * Login user by phone number and PIN
  */
 export const loginUser = functions.https.onCall(async (request) => {
   try {
-    const { phoneNumber } = request.data;
+    const {phoneNumber} = request.data;
 
     // Validate input
     if (!phoneNumber) {
       throw new functions.https.HttpsError(
-        'invalid-argument',
-        'Phone number is required'
+        "invalid-argument",
+        "Phone number is required"
       );
     }
 
@@ -80,26 +91,27 @@ export const loginUser = functions.https.onCall(async (request) => {
 
     if (!user) {
       throw new functions.https.HttpsError(
-        'not-found',
-        'User not found. Please register first.'
+        "not-found",
+        "User not found. Please register first."
       );
     }
 
-    functions.logger.info('User logged in successfully', { userId: user.id });
+    const {pinHash, ...userWithoutPin} = user;
+
+    functions.logger.info("User login initiated", {userId: user.id});
 
     return {
       success: true,
-      message: 'Login successful',
-      user,
+      message: "User found",
+      user: userWithoutPin,
     };
   } catch (error: any) {
-    functions.logger.error('Error logging in user', error);
+    functions.logger.error("Error logging in user", error);
 
     if (error.code) {
       throw error; // Re-throw HttpsError
     }
 
-    throw new functions.https.HttpsError('internal', error.message);
+    throw new functions.https.HttpsError("internal", error.message);
   }
 });
-

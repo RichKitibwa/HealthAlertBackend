@@ -7,14 +7,17 @@ export interface User {
   role: UserRole;
   createdAt: string;
   updatedAt?: string;
+  pinHash?: string; 
+  specialty?: string; 
+  workplace?: string;
 }
 
 // User roles enum
 export enum UserRole {
-  VHT = 'VHT',
-  AMBULANCE_DRIVER = 'Ambulance Driver',
-  CLINIC_STAFF = 'Clinic Staff',
-  ADMIN = 'Admin',
+  VHT = "VHT",
+  AMBULANCE_DRIVER = "Ambulance Driver",
+  CLINIC_STAFF = "Clinic Staff",
+  ADMIN = "Admin",
 }
 
 // Data for creating a new user
@@ -23,6 +26,9 @@ export interface CreateUserData {
   lastName: string;
   phoneNumber: string;
   role: string;
+  pinHash: string; 
+  specialty?: string; 
+  workplace?: string; // For clinicians
 }
 
 // Data for updating user profile

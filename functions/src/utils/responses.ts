@@ -1,6 +1,5 @@
 /**
  * Response Utilities
- * Standardized response formats for Cloud Functions
  */
 
 /**
@@ -20,7 +19,7 @@ export function successResponse(message: string, data?: any) {
 export function errorResponse(message: string, code?: string) {
   return {
     success: false,
-    error: code || 'unknown',
+    error: code || "unknown",
     message,
   };
 }

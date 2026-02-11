@@ -1,6 +1,6 @@
-import * as functions from 'firebase-functions';
-import { UserService } from '../services/user.service';
-import { UpdateUserData } from '../models/user.model';
+import * as functions from "firebase-functions";
+import {UserService} from "../services/user.service";
+import {UpdateUserData} from "../models/user.model";
 
 const userService = new UserService();
 
@@ -14,19 +14,19 @@ const userService = new UserService();
  */
 export const getUserById = functions.https.onCall(async (request) => {
   try {
-    const { userId } = request.data;
+    const {userId} = request.data;
 
     if (!userId) {
       throw new functions.https.HttpsError(
-        'invalid-argument',
-        'User ID is required'
+        "invalid-argument",
+        "User ID is required"
       );
     }
 
     const user = await userService.getUserById(userId);
 
     if (!user) {
-      throw new functions.https.HttpsError('not-found', 'User not found');
+      throw new functions.https.HttpsError("not-found", "User not found");
     }
 
     return {
@@ -34,13 +34,13 @@ export const getUserById = functions.https.onCall(async (request) => {
       user,
     };
   } catch (error: any) {
-    functions.logger.error('Error getting user', error);
+    functions.logger.error("Error getting user", error);
 
     if (error.code) {
       throw error;
     }
 
-    throw new functions.https.HttpsError('internal', error.message);
+    throw new functions.https.HttpsError("internal", error.message);
   }
 });
 
@@ -49,42 +49,42 @@ export const getUserById = functions.https.onCall(async (request) => {
  */
 export const updateUserProfile = functions.https.onCall(async (request) => {
   try {
-    const { userId, firstName, lastName, phoneNumber } = request.data;
+    const {userId, firstName, lastName, phoneNumber} = request.data;
 
     if (!userId) {
       throw new functions.https.HttpsError(
-        'invalid-argument',
-        'User ID is required'
+        "invalid-argument",
+        "User ID is required"
       );
     }
 
     // Check if user exists
     const user = await userService.getUserById(userId);
     if (!user) {
-      throw new functions.https.HttpsError('not-found', 'User not found');
+      throw new functions.https.HttpsError("not-found", "User not found");
     }
 
-    const updateData: UpdateUserData = { userId };
+    const updateData: UpdateUserData = {userId};
     if (firstName) updateData.firstName = firstName;
     if (lastName) updateData.lastName = lastName;
     if (phoneNumber) updateData.phoneNumber = phoneNumber;
 
     await userService.updateUser(updateData);
 
-    functions.logger.info('User profile updated', { userId });
+    functions.logger.info("User profile updated", {userId});
 
     return {
       success: true,
-      message: 'Profile updated successfully',
+      message: "Profile updated successfully",
     };
   } catch (error: any) {
-    functions.logger.error('Error updating user profile', error);
+    functions.logger.error("Error updating user profile", error);
 
     if (error.code) {
       throw error;
     }
 
-    throw new functions.https.HttpsError('internal', error.message);
+    throw new functions.https.HttpsError("internal", error.message);
   }
 });
 
@@ -93,12 +93,12 @@ export const updateUserProfile = functions.https.onCall(async (request) => {
  */
 export const getUsersByRole = functions.https.onCall(async (request) => {
   try {
-    const { role } = request.data;
+    const {role} = request.data;
 
     if (!role) {
       throw new functions.https.HttpsError(
-        'invalid-argument',
-        'Role is required'
+        "invalid-argument",
+        "Role is required"
       );
     }
 
@@ -110,13 +110,13 @@ export const getUsersByRole = functions.https.onCall(async (request) => {
       count: users.length,
     };
   } catch (error: any) {
-    functions.logger.error('Error getting users by role', error);
+    functions.logger.error("Error getting users by role", error);
 
     if (error.code) {
       throw error;
     }
 
-    throw new functions.https.HttpsError('internal', error.message);
+    throw new functions.https.HttpsError("internal", error.message);
   }
 });
 
@@ -126,7 +126,7 @@ export const getUsersByRole = functions.https.onCall(async (request) => {
 export const getAllUsers = functions.https.onCall(async (request) => {
   try {
     // TODO: Add admin authentication check
-    // For now, allow all requests
+    // For now, allow all requests. will ask the product owner about this later 
 
     const users = await userService.getAllUsers();
 
@@ -136,8 +136,8 @@ export const getAllUsers = functions.https.onCall(async (request) => {
       count: users.length,
     };
   } catch (error: any) {
-    functions.logger.error('Error getting all users', error);
-    throw new functions.https.HttpsError('internal', error.message);
+    functions.logger.error("Error getting all users", error);
+    throw new functions.https.HttpsError("internal", error.message);
   }
 });
 
@@ -146,37 +146,37 @@ export const getAllUsers = functions.https.onCall(async (request) => {
  */
 export const deleteUser = functions.https.onCall(async (request) => {
   try {
-    const { userId } = request.data;
+    const {userId} = request.data;
 
     if (!userId) {
       throw new functions.https.HttpsError(
-        'invalid-argument',
-        'User ID is required'
+        "invalid-argument",
+        "User ID is required"
       );
     }
 
     // Check if user exists
     const user = await userService.getUserById(userId);
     if (!user) {
-      throw new functions.https.HttpsError('not-found', 'User not found');
+      throw new functions.https.HttpsError("not-found", "User not found");
     }
 
     await userService.deleteUser(userId);
 
-    functions.logger.info('User deleted', { userId });
+    functions.logger.info("User deleted", {userId});
 
     return {
       success: true,
-      message: 'User deleted successfully',
+      message: "User deleted successfully",
     };
   } catch (error: any) {
-    functions.logger.error('Error deleting user', error);
+    functions.logger.error("Error deleting user", error);
 
     if (error.code) {
       throw error;
     }
 
-    throw new functions.https.HttpsError('internal', error.message);
+    throw new functions.https.HttpsError("internal", error.message);
   }
 });
 

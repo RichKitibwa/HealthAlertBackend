@@ -1,8 +1,8 @@
-import * as admin from 'firebase-admin';
-import { User, CreateUserData, UpdateUserData } from '../models/user.model';
+import * as admin from "firebase-admin";
+import {User, CreateUserData, UpdateUserData} from "../models/user.model";
 
 const db = admin.firestore();
-const USERS_COLLECTION = 'users';
+const USERS_COLLECTION = "users";
 
 /**
  * User Service
@@ -16,7 +16,7 @@ export class UserService {
     // Check if user already exists
     const existingUser = await this.getUserByPhoneNumber(data.phoneNumber);
     if (existingUser) {
-      throw new Error('User with this phone number already exists');
+      throw new Error("User with this phone number already exists");
     }
 
     // Create new user document
@@ -30,6 +30,9 @@ export class UserService {
       phoneNumber: data.phoneNumber,
       role: data.role as any,
       createdAt: new Date().toISOString(),
+      pinHash: data.pinHash,
+      specialty: data.specialty,
+      workplace: data.workplace,
     };
 
     await userRef.set(newUser);
@@ -42,7 +45,7 @@ export class UserService {
   async getUserByPhoneNumber(phoneNumber: string): Promise<User | null> {
     const querySnapshot = await db
       .collection(USERS_COLLECTION)
-      .where('phoneNumber', '==', phoneNumber)
+      .where("phoneNumber", "==", phoneNumber)
       .limit(1)
       .get();
 
@@ -93,10 +96,10 @@ export class UserService {
   async getUsersByRole(role: string): Promise<User[]> {
     const querySnapshot = await db
       .collection(USERS_COLLECTION)
-      .where('role', '==', role)
+      .where("role", "==", role)
       .get();
 
-    return querySnapshot.docs.map(doc => doc.data() as User);
+    return querySnapshot.docs.map((doc) => doc.data() as User);
   }
 
   /**
@@ -111,7 +114,7 @@ export class UserService {
    */
   async getAllUsers(): Promise<User[]> {
     const querySnapshot = await db.collection(USERS_COLLECTION).get();
-    return querySnapshot.docs.map(doc => doc.data() as User);
+    return querySnapshot.docs.map((doc) => doc.data() as User);
   }
 }
 

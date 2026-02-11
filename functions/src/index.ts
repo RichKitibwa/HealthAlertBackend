@@ -1,6 +1,6 @@
 /**
  * Firebase Cloud Functions
- * 
+ *
  * Modular structure:
  * - models/: Data models and interfaces
  * - services/: Database operations and business logic
@@ -8,8 +8,8 @@
  * - utils/: Helper functions and utilities
  */
 
-import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import * as admin from "firebase-admin";
+import * as functions from "firebase-functions";
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -18,7 +18,7 @@ admin.initializeApp();
 export {
   registerUser,
   loginUser,
-} from './controllers/auth.controller';
+} from "./controllers/auth.controller";
 
 // Export user management functions
 export {
@@ -27,17 +27,32 @@ export {
   getUsersByRole,
   getAllUsers,
   deleteUser,
-} from './controllers/user.controller';
+} from "./controllers/user.controller";
+
+// Export emergency case functions
+export {
+  createEmergencyCase,
+  getEmergencyCaseById,
+  getEmergencyCases,
+  updateEmergencyCase,
+  deleteEmergencyCase,
+} from "./controllers/emergency-case.controller";
+
+// Export notification triggers (Firestore-triggered functions)
+export {
+  onEmergencyCaseCreated,
+  onEmergencyCaseUpdated,
+} from "./controllers/notification.controller";
 
 // Test function to verify deployment
 export const helloWorld = functions.https.onRequest((request, response) => {
-  functions.logger.info('Hello logs!', { structuredData: true });
+  functions.logger.info("Hello logs!", {structuredData: true});
   response.json({
-    message: 'Emergency Health System API - Firebase Functions Active!',
-    version: '1.0.0',
+    message: "Emergency Health System API - Firebase Functions Active!",
+    version: "1.0.0",
     endpoints: {
-      auth: ['registerUser', 'loginUser'],
-      users: ['getUserById', 'updateUserProfile', 'getUsersByRole', 'getAllUsers', 'deleteUser'],
+      auth: ["registerUser", "loginUser"],
+      users: ["getUserById", "updateUserProfile", "getUsersByRole", "getAllUsers", "deleteUser"],
     },
   });
 });
