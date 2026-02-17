@@ -6,10 +6,10 @@
 export interface EmergencyCase {
   id?: string;
   caseType: "medical" | "trauma" | "maternal" | "pediatric" | "other" | "birth" | "infection";
-  emergencyType?: string; 
+  emergencyType?: string;
   urgencyLevel: "critical" | "high" | "medium" | "low";
   status: "pending" | "dispatched" | "enRoute" | "arrived" | "inTransit" | "delivered" | "completed" | "cancelled";
-  patientId?: string; 
+  patientId?: string;
   patientName?: string;
   patientAge?: number;
   patientGender?: string;
@@ -25,11 +25,11 @@ export interface EmergencyCase {
   vhtLatitude?: number;
   vhtLongitude?: number;
   assignedAmbulanceId?: string;
-  assignedClinicId?: string; 
-  assignedClinicName?: string; 
+  assignedClinicId?: string;
+  assignedClinicName?: string;
   assignedClinicianName?: string;
   clinicianPhoneNumber?: string;
-  clinicianNotes?: string; 
+  clinicianNotes?: string;
   attachmentUrls?: string[];
   notes?: string;
   createdAt?: Date | FirebaseFirestore.Timestamp;

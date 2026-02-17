@@ -33,6 +33,7 @@ export class UserService {
       pinHash: data.pinHash,
       specialty: data.specialty,
       workplace: data.workplace,
+      email: data.email,
     };
 
     await userRef.set(newUser);
@@ -83,6 +84,7 @@ export class UserService {
     if (data.firstName) updateData.firstName = data.firstName;
     if (data.lastName) updateData.lastName = data.lastName;
     if (data.phoneNumber) updateData.phoneNumber = data.phoneNumber;
+    if (data.email) updateData.email = data.email;
 
     await db
       .collection(USERS_COLLECTION)

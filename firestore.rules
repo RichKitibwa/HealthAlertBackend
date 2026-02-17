@@ -1,11 +1,27 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // DEVELOPMENT: Allow all read/write operations
-    // TODO: Tighten rules before production deployment
-    match /{document=**} {
-      allow read, write: if true;
+
+    // App uses phone+PIN auth (no Firebase Auth session), so request.auth is always null.
+    // Rules based on request.auth cannot be enforced here.
+    // Security is handled at the application layer (PIN hash check, role-based routing).
+    // TODO: Migrate to Firebase Custom Auth tokens to enable server-side rule enforcement.
+
+    match /users/{userId} {
+      allow read: if true;           // needed for phone+PIN login lookup
+      allow write: if true;          // needed for FCM token, location, lastActive updates
+    }
+
+    match /emergencyCases/{caseId} {
+      allow read, write: if true;    // needed for VHT, clinician, ambulance, admin access
+    }
+
+    match /emergencyCases/{caseId}/followUps/{followUpId} {
+      allow read, write: if true;    // VHT follow-up updates
+    }
+
+    match /notifications/{notifId} {
+      allow read, write: if true;    // needed for notification bell and in-app notifications
     }
   }
 }

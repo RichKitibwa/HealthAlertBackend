@@ -4,6 +4,14 @@
       "collectionGroup": "emergencyCases",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "assignedAmbulanceId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "emergencyCases",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "assignedClinicId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
@@ -38,7 +46,7 @@
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "recipientId", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     }

@@ -11,6 +11,18 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 
+// Load environment variables from .env file (for local development)
+// In production, Firebase automatically loads environment variables
+if (process.env.NODE_ENV !== "production") {
+  try {
+    // Try to load dotenv if available (for local development)
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require("dotenv").config();
+  } catch {
+    // dotenv not installed, that's okay - use Firebase config or env vars
+  }
+}
+
 // Initialize Firebase Admin
 admin.initializeApp();
 
@@ -19,6 +31,12 @@ export {
   registerUser,
   loginUser,
 } from "./controllers/auth.controller";
+
+// Export admin authentication functions
+export {
+  sendAdminOTP,
+  verifyAdminOTP,
+} from "./controllers/admin-auth.controller";
 
 // Export user management functions
 export {

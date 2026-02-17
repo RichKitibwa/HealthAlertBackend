@@ -7,9 +7,10 @@ export interface User {
   role: UserRole;
   createdAt: string;
   updatedAt?: string;
-  pinHash?: string; 
-  specialty?: string; 
+  pinHash?: string;
+  specialty?: string;
   workplace?: string;
+  email?: string; // For admin users
 }
 
 // User roles enum
@@ -26,9 +27,10 @@ export interface CreateUserData {
   lastName: string;
   phoneNumber: string;
   role: string;
-  pinHash: string; 
-  specialty?: string; 
+  pinHash: string;
+  specialty?: string;
   workplace?: string; // For clinicians
+  email?: string; // For admin users
 }
 
 // Data for updating user profile
@@ -37,5 +39,6 @@ export interface UpdateUserData {
   firstName?: string;
   lastName?: string;
   phoneNumber?: string;
+  email?: string;
 }
 

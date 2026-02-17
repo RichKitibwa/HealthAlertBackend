@@ -14,7 +14,7 @@ const userService = new UserService();
  */
 export const registerUser = functions.https.onCall(async (request) => {
   try {
-    const {firstName, lastName, phoneNumber, role, pinHash, specialty, workplace} = request.data;
+    const {firstName, lastName, phoneNumber, role, pinHash, specialty, workplace, email} = request.data;
 
     // Validate input
     if (!firstName || !lastName || !phoneNumber || !role || !pinHash) {
@@ -49,6 +49,7 @@ export const registerUser = functions.https.onCall(async (request) => {
       pinHash,
       specialty,
       workplace,
+      email,
     };
 
     const user = await userService.createUser(userData);

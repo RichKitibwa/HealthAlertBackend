@@ -49,7 +49,7 @@ export const getUserById = functions.https.onCall(async (request) => {
  */
 export const updateUserProfile = functions.https.onCall(async (request) => {
   try {
-    const {userId, firstName, lastName, phoneNumber} = request.data;
+    const {userId, firstName, lastName, phoneNumber, email} = request.data;
 
     if (!userId) {
       throw new functions.https.HttpsError(
@@ -68,6 +68,7 @@ export const updateUserProfile = functions.https.onCall(async (request) => {
     if (firstName) updateData.firstName = firstName;
     if (lastName) updateData.lastName = lastName;
     if (phoneNumber) updateData.phoneNumber = phoneNumber;
+    if (email) updateData.email = email;
 
     await userService.updateUser(updateData);
 
@@ -126,7 +127,7 @@ export const getUsersByRole = functions.https.onCall(async (request) => {
 export const getAllUsers = functions.https.onCall(async (request) => {
   try {
     // TODO: Add admin authentication check
-    // For now, allow all requests. will ask the product owner about this later 
+    // For now, allow all requests. will ask the product owner about this later
 
     const users = await userService.getAllUsers();
 

@@ -2,9 +2,16 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // DEVELOPMENT: Allow all read/write operations
-    // TODO: Tighten rules before production deployment
-    match /{allPaths=**} {
+    // Emergency case media (images, videos, voice notes).
+    // NOTE: App uses phone+PIN auth (no Firebase Auth session), so request.auth is always null.
+    // Security is handled at the application layer (PIN hash check, role-based routing).
+    // TODO: Migrate to Firebase Custom Auth tokens to enable server-side rule enforcement.
+    match /emergencyCases/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // Profile images uploaded during registration.
+    match /profileImages/{allPaths=**} {
       allow read, write: if true;
     }
   }
