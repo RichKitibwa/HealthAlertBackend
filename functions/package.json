@@ -8,7 +8,8 @@
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "cleanup-test-data": "npm run build && node lib/scripts/cleanup-test-data.js"
   },
   "engines": {
     "node": "22"

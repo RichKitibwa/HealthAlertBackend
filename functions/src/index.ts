@@ -60,6 +60,7 @@ export {
 export {
   onEmergencyCaseCreated,
   onEmergencyCaseUpdated,
+  onNotificationDocCreated,
 } from "./controllers/notification.controller";
 
 // Test function to verify deployment
