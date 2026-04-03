@@ -54,7 +54,12 @@ export class UserService {
       return null;
     }
 
-    return querySnapshot.docs[0].data() as User;
+    const doc = querySnapshot.docs[0];
+    const data = doc.data() as User;
+    return {
+      ...data,
+      id: data.id || doc.id,
+    };
   }
 
   /**
@@ -70,7 +75,11 @@ export class UserService {
       return null;
     }
 
-    return docSnapshot.data() as User;
+    const data = docSnapshot.data() as User;
+    return {
+      ...data,
+      id: data.id || docSnapshot.id,
+    };
   }
 
   /**

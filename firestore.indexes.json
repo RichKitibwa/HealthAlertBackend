@@ -21,7 +21,24 @@
       "collectionGroup": "emergencyCases",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "assignedClinicName", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "emergencyCases",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "assignedClinicId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "emergencyCases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "assignedClinicName", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },

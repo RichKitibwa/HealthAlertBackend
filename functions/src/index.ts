@@ -30,6 +30,7 @@ admin.initializeApp();
 export {
   registerUser,
   loginUser,
+  loginUserWithPin,
 } from "./controllers/auth.controller";
 
 // Export admin authentication functions

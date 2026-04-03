@@ -13,11 +13,43 @@ service cloud.firestore {
     }
 
     match /emergencyCases/{caseId} {
-      allow read, write: if true;    // needed for VHT, clinician, ambulance, admin access
+      // Role-based confidentiality at the document level.
+      // - VHT: only their own cases (resource.data.vhtId == request.auth.uid)
+      // - Clinic Staff: only cases assigned to their facility (assignedClinicName == token.workplace)
+      // - Ambulance Driver: only cases assigned to them (assignedAmbulanceId == request.auth.uid)
+      // - Admin: can read all cases
+      //
+      // Writes are left open to avoid breaking existing workflows;
+      // confidentiality is enforced primarily via read restrictions.
+      allow read: if request.auth != null && (
+        request.auth.token.role == "Admin" ||
+        (request.auth.token.role == "VHT" && resource.data.vhtId == request.auth.uid) ||
+        (
+          request.auth.token.role == "Clinic Staff" &&
+          resource.data.assignedClinicName == request.auth.token.workplace
+        ) ||
+        (
+          request.auth.token.role == "Ambulance Driver" &&
+          resource.data.assignedAmbulanceId == request.auth.uid
+        )
+      );
+      allow write: if true;
     }
 
     match /emergencyCases/{caseId}/followUps/{followUpId} {
       allow read, write: if true;    // VHT follow-up updates
+    }
+
+    // Clinician private notes (dispatch path notes)
+    // Stored in a subcollection so Firestore rules can prevent VHT access.
+    match /emergencyCases/{caseId}/clinicianPrivateNotes/{noteId} {
+      allow read, write: if request.auth != null && (
+        request.auth.token.role == "Admin" ||
+        (
+          request.auth.token.role == "Clinic Staff" &&
+          get(/databases/$(database)/documents/emergencyCases/$(caseId)).data.assignedClinicName == request.auth.token.workplace
+        )
+      );
     }
 
     match /notifications/{notifId} {
