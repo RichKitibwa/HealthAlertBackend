@@ -2,10 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // App uses phone+PIN auth (no Firebase Auth session), so request.auth is always null.
-    // Rules based on request.auth cannot be enforced here.
-    // Security is handled at the application layer (PIN hash check, role-based routing).
-    // TODO: Migrate to Firebase Custom Auth tokens to enable server-side rule enforcement.
+    // Auth: phone+PIN verified by the loginUserWithPin Cloud Function, which issues
+    // a Firebase Custom Token embedding role, workplace, and specialty claims.
+    // All Firestore rules below rely on that token (request.auth / request.auth.token).
 
     match /users/{userId} {
       allow read: if true;           // needed for phone+PIN login lookup
@@ -18,9 +17,6 @@ service cloud.firestore {
       // - Clinic Staff: only cases assigned to their facility (assignedClinicName == token.workplace)
       // - Ambulance Driver: only cases assigned to them (assignedAmbulanceId == request.auth.uid)
       // - Admin: can read all cases
-      //
-      // Writes are left open to avoid breaking existing workflows;
-      // confidentiality is enforced primarily via read restrictions.
       allow read: if request.auth != null && (
         request.auth.token.role == "Admin" ||
         (request.auth.token.role == "VHT" && resource.data.vhtId == request.auth.uid) ||
@@ -49,6 +45,14 @@ service cloud.firestore {
           request.auth.token.role == "Clinic Staff" &&
           get(/databases/$(database)/documents/emergencyCases/$(caseId)).data.assignedClinicName == request.auth.token.workplace
         )
+      );
+    }
+
+    // Treatment records written when a patient is discharged by the clinician.
+    match /emergencyCases/{caseId}/treatments/{treatmentId} {
+      allow read, write: if request.auth != null && (
+        request.auth.token.role == "Admin" ||
+        request.auth.token.role == "Clinic Staff"
       );
     }
 
