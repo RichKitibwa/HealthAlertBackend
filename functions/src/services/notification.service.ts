@@ -155,6 +155,7 @@ export class NotificationService {
     body: string;
     caseId?: string;
     data?: Record<string, string>;
+    recipientRole?: string;
   }): Promise<string> {
     try {
       const notifDoc = await db.collection("notifications").add({
@@ -166,6 +167,7 @@ export class NotificationService {
         body: params.body,
         caseId: params.caseId || null,
         data: params.data || {},
+        ...(params.recipientRole ? {recipientRole: params.recipientRole} : {}),
         read: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -180,6 +182,64 @@ export class NotificationService {
     } catch (error: any) {
       functions.logger.error("Failed to create in-app notification", {
         error: error.message,
+      });
+      throw new Error(`Failed to create notification: ${error.message}`);
+    }
+  }
+
+  /**
+   * Create a notification once per durable business event.
+   * Firestore doc IDs are deterministic, so Cloud Function retries or repeated
+   * client actions cannot create duplicate in-app notifications for the same
+   * user/case/type tuple.
+   */
+  async createInAppNotificationOnce(params: {
+    dedupeKey: string;
+    recipientId: string;
+    type: string;
+    title: string;
+    body: string;
+    caseId?: string;
+    data?: Record<string, string>;
+    recipientRole?: string;
+  }): Promise<string | null> {
+    try {
+      const safeKey = encodeURIComponent(params.dedupeKey).replace(/\./g, "%2E");
+      const ref = db.collection("notifications").doc(safeKey);
+      await ref.create({
+        userId: params.recipientId,
+        recipientId: params.recipientId,
+        type: params.type,
+        title: params.title,
+        message: params.body,
+        body: params.body,
+        caseId: params.caseId || null,
+        data: params.data || {},
+        ...(params.recipientRole ? {recipientRole: params.recipientRole} : {}),
+        dedupeKey: params.dedupeKey,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      functions.logger.info("In-app notification created once", {
+        notificationId: ref.id,
+        recipientId: params.recipientId,
+        dedupeKey: params.dedupeKey,
+      });
+
+      return ref.id;
+    } catch (error: any) {
+      if (error.code === 6 || error.code === "already-exists") {
+        functions.logger.info("Skipping duplicate notification", {
+          dedupeKey: params.dedupeKey,
+          recipientId: params.recipientId,
+        });
+        return null;
+      }
+      functions.logger.error("Failed to create idempotent notification", {
+        error: error.message,
+        dedupeKey: params.dedupeKey,
       });
       throw new Error(`Failed to create notification: ${error.message}`);
     }

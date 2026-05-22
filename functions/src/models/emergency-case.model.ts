@@ -8,7 +8,19 @@ export interface EmergencyCase {
   caseType: "medical" | "trauma" | "maternal" | "pediatric" | "other" | "birth" | "infection";
   emergencyType?: string;
   urgencyLevel: "critical" | "high" | "medium" | "low";
-  status: "pending" | "dispatched" | "enRoute" | "arrived" | "inTransit" | "delivered" | "completed" | "cancelled";
+  status:
+    | "pending"
+    | "advised"
+    | "ambulanceRequested"
+    | "dispatched"
+    | "enRoute"
+    | "arrived"
+    | "inTransit"
+    | "delivered"
+    | "inTreatment"
+    | "admitted"
+    | "completed"
+    | "cancelled";
   patientId?: string;
   patientName?: string;
   patientAge?: number;

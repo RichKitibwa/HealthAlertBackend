@@ -54,6 +54,7 @@ export {
   getEmergencyCaseById,
   getEmergencyCases,
   updateEmergencyCase,
+  acceptAmbulanceDispatch,
   deleteEmergencyCase,
 } from "./controllers/emergency-case.controller";
 

@@ -12,6 +12,146 @@ import {NotificationService} from "../services/notification.service";
 const notificationService = new NotificationService();
 const db = admin.firestore();
 
+type CaseData = FirebaseFirestore.DocumentData;
+
+function patientName(caseData: CaseData): string {
+  const first = (caseData.patientFirstName as string | undefined) || "";
+  const last = (caseData.patientLastName as string | undefined) || "";
+  return `${first} ${last}`.trim() ||
+    (caseData.patientName as string | undefined) ||
+    "Patient";
+}
+
+function distanceKm(
+  lat1?: number,
+  lon1?: number,
+  lat2?: number,
+  lon2?: number
+): number {
+  if (
+    lat1 === undefined || lon1 === undefined ||
+    lat2 === undefined || lon2 === undefined
+  ) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  const toRad = (value: number) => value * Math.PI / 180;
+  const radius = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function userIdsByRole(role: string): Promise<string[]> {
+  const snapshot = await db.collection("users")
+    .where("role", "==", role)
+    .get();
+  return snapshot.docs.map((doc) => doc.id).filter(Boolean);
+}
+
+async function nearestAdminIds(caseData: CaseData): Promise<string[]> {
+  const admins = await db.collection("users")
+    .where("role", "==", "Admin")
+    .get();
+  if (admins.empty) return [];
+
+  const pickupLat =
+    (caseData.vhtLatitude as number | undefined) ??
+    (caseData.latitude as number | undefined);
+  const pickupLon =
+    (caseData.vhtLongitude as number | undefined) ??
+    (caseData.longitude as number | undefined);
+
+  if (pickupLat === undefined || pickupLon === undefined) {
+    return admins.docs.map((doc) => doc.id);
+  }
+
+  const sorted = admins.docs
+    .map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        distance: distanceKm(
+          pickupLat,
+          pickupLon,
+          (data.latitude as number | undefined),
+          (data.longitude as number | undefined)
+        ),
+      };
+    })
+    .sort((a, b) => a.distance - b.distance);
+
+  return sorted.length ? [sorted[0].id] : [];
+}
+
+async function createCaseNotificationOnce(params: {
+  caseId: string;
+  userId: string;
+  role: string;
+  type: string;
+  title: string;
+  body: string;
+  status: string;
+  emergencyType: string;
+}): Promise<void> {
+  if (!params.userId) return;
+  await notificationService.createInAppNotificationOnce({
+    dedupeKey: [
+      params.caseId,
+      params.userId,
+      params.type,
+      params.status,
+    ].join(":"),
+    recipientId: params.userId,
+    recipientRole: params.role,
+    type: params.type,
+    title: params.title,
+    body: params.body,
+    caseId: params.caseId,
+    data: {
+      newStatus: params.status,
+      emergencyType: params.emergencyType,
+    },
+  });
+}
+
+async function markNotificationsRead(params: {
+  caseId: string;
+  types: string[];
+  userId?: string;
+}): Promise<void> {
+  if (!params.caseId || params.types.length === 0) return;
+  const query: FirebaseFirestore.Query = db.collection("notifications")
+    .where("caseId", "==", params.caseId);
+
+  const snapshot = await query.get();
+  if (snapshot.empty) return;
+
+  const batch = db.batch();
+  let updates = 0;
+  snapshot.docs.forEach((doc) => {
+    const data = doc.data();
+    const type = data.type as string | undefined;
+    if (
+      data.read === true ||
+      !params.types.includes(type || "") ||
+      (params.userId && data.userId !== params.userId)
+    ) {
+      return;
+    }
+    batch.update(doc.ref, {
+      read: true,
+      supersededAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    updates++;
+  });
+  if (updates === 0) return;
+  await batch.commit();
+}
+
 /**
  * Firestore trigger: whenever a new document is added to the 'notifications'
  * collection (by the Flutter app or other backend code), send an FCM push
@@ -108,13 +248,15 @@ export const onEmergencyCaseCreated = onDocumentCreated(
  *
  * Frontend handles (do NOT duplicate here):
  *   - "advised"     → notifyVhtOfClinicianAdvice (VHT)
- *   - "dispatched"  → notifyOnAmbulanceDispatched (VHT, clinician, driver)
- *   - "delivered"   → notifyOnPatientDelivered (VHT, clinician, admins)
- *   - "completed" via advice path → notifyOnCaseClosed (VHT)
+ *   - Frontend must not create status-change notifications directly.
  *
  * Backend handles (only these):
+ *   - "ambulanceRequested" → nearest admin only
+ *   - "dispatched" → VHT, clinician, assigned driver
  *   - "arrived"    → VHT: ambulance is at your location
  *   - "inTransit"  → Clinician: patient is on the way
+ *   - "delivered"  → VHT, clinician, admins
+ *   - "completed"  → VHT, admins for discharge; VHT for advice closure
  *   - "cancelled"  → VHT: case cancelled
  */
 export const onEmergencyCaseUpdated = onDocumentUpdated(
@@ -144,109 +286,217 @@ export const onEmergencyCaseUpdated = onDocumentUpdated(
     });
 
     const newStatus = after.status;
-    const updatedBy = after.updatedBy || "";
     const vhtId = after.vhtId;
     const assignedClinicId = after.assignedClinicId;
+    const assignedAmbulanceId = after.assignedAmbulanceId;
     const emergencyType = after.emergencyType || "Emergency";
-    const patientFirst = after.patientFirstName || "";
-    const patientLast = after.patientLastName || "";
-    const pName =
-      `${patientFirst} ${patientLast}`.trim() || "Patient";
+    const pName = patientName(after);
+    const clinicName = after.assignedClinicName || "the clinic";
+    const driverName = after.assignedDriverName || "the ambulance driver";
+    const clinicianName = after.assignedClinicianName || "the clinician";
 
-    /**
-     * Create an in-app notification doc AND send FCM push directly to the user.
-     * Adding fcmPushed: true to the doc prevents onNotificationDocCreated from
-     * sending a duplicate FCM push for the same notification.
-     * Skips if recipient is the person who performed the action.
-     */
-    const notifyUser = async (
-      userId: string,
-      title: string,
-      body: string,
-      type: string
-    ) => {
-      if (!userId) return;
-      // Don't notify the user who performed the action
-      if (userId === updatedBy) {
-        functions.logger.info("Skipping self-notification", {userId, caseId, newStatus});
-        return;
-      }
-      try {
-        // Create in-app notification doc with fcmPushed flag to avoid double push
-        await db.collection("notifications").add({
-          userId,
-          recipientId: userId,
-          type,
-          title,
-          message: body,
-          body,
+    // ─── Status-driven notifications (single backend source of truth) ───────
+
+    if (newStatus === "ambulanceRequested") {
+      const adminIds = await nearestAdminIds(after);
+      await Promise.all(adminIds.map((adminId) =>
+        createCaseNotificationOnce({
           caseId,
-          read: false,
-          fcmPushed: true,
-          data: {oldStatus: before.status, newStatus, emergencyType},
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        });
+          userId: adminId,
+          role: "Admin",
+          type: "dispatch_request",
+          title: "Ambulance Dispatch Required",
+          body: `${clinicianName} requested an ambulance for ` +
+            `${emergencyType}. Patient: ${pName}.`,
+          status: newStatus,
+          emergencyType,
+        })
+      ));
+      await markNotificationsRead({
+        caseId,
+        types: ["ambulance_request_standby"],
+      });
+    }
 
-        // Send FCM push directly (belt-and-suspenders, same as develop branch)
-        const userDoc = await db.collection("users").doc(userId).get();
-        const userData = userDoc.data();
-        if (userData?.fcmToken) {
-          await notificationService.sendPushNotification({
-            fcmToken: userData.fcmToken as string,
-            title,
-            body,
-            recipientRole: userData.role as string | undefined,
-            data: {type, caseId, newStatus},
-          });
-        }
-      } catch (error: any) {
-        functions.logger.error(
-          `Failed to notify user ${userId}`,
-          {caseId, error: error.message}
-        );
-      }
-    };
-
-    // ─── Statuses NOT handled by the Flutter frontend ───────────────────────
+    if (newStatus === "dispatched") {
+      await markNotificationsRead({
+        caseId,
+        types: ["ambulance_request_standby"],
+      });
+      await Promise.all([
+        vhtId ? createCaseNotificationOnce({
+          caseId,
+          userId: vhtId,
+          role: "VHT",
+          type: "ambulance_dispatched",
+          title: "Ambulance On The Way",
+          body: `Ambulance driver ${driverName} has been dispatched. ` +
+            `Stay with ${pName}.`,
+          status: newStatus,
+          emergencyType,
+        }) : Promise.resolve(),
+        assignedClinicId ? createCaseNotificationOnce({
+          caseId,
+          userId: assignedClinicId,
+          role: "Clinician",
+          type: "ambulance_dispatched",
+          title: "Ambulance Dispatched",
+          body: `${driverName} has been dispatched for ${emergencyType}. ` +
+            `Patient: ${pName}.`,
+          status: newStatus,
+          emergencyType,
+        }) : Promise.resolve(),
+        assignedAmbulanceId ? createCaseNotificationOnce({
+          caseId,
+          userId: assignedAmbulanceId,
+          role: "Ambulance Driver",
+          type: "dispatch_assigned",
+          title: "New Dispatch Assignment",
+          body: `You have been assigned to a ${emergencyType} case. ` +
+            `Collect ${pName} and deliver to ${clinicName}.`,
+          status: newStatus,
+          emergencyType,
+        }) : Promise.resolve(),
+      ]);
+    }
 
     // "arrived": Ambulance has arrived at VHT's location.
     // (Frontend comment: "No notifications for arrived" — backend handles it.)
     if (vhtId && newStatus === "arrived") {
-      await notifyUser(
-        vhtId,
-        "Ambulance Arrived",
-        `The ambulance has arrived at your location. Prepare ${pName} for handover.`,
-        "case_status_update"
-      );
+      await createCaseNotificationOnce({
+        caseId,
+        userId: vhtId,
+        role: "VHT",
+        type: "ambulance_arrived",
+        title: "Ambulance Arrived",
+        body: "The ambulance has arrived at your location. " +
+          `Prepare ${pName} for handover.`,
+        status: newStatus,
+        emergencyType,
+      });
     }
 
     // "inTransit": Patient is being transported — notify the clinician to prepare.
     // (Frontend only notifies on "delivered", not on "inTransit".)
     if (assignedClinicId && newStatus === "inTransit") {
-      await notifyUser(
-        assignedClinicId,
-        "Patient In Transit",
-        `${pName} is being transported to your clinic. Prepare for arrival.`,
-        "case_status_update"
-      );
+      await createCaseNotificationOnce({
+        caseId,
+        userId: assignedClinicId,
+        role: "Clinician",
+        type: "patient_in_transit",
+        title: "Patient In Transit",
+        body: `${pName} is being transported to your clinic. Prepare for arrival.`,
+        status: newStatus,
+        emergencyType,
+      });
+    }
+
+    if (newStatus === "delivered") {
+      if (assignedAmbulanceId) {
+        await markNotificationsRead({
+          caseId,
+          userId: assignedAmbulanceId,
+          types: ["dispatch_assigned"],
+        });
+      }
+
+      const adminIds = await userIdsByRole("Admin");
+      await Promise.all([
+        vhtId ? createCaseNotificationOnce({
+          caseId,
+          userId: vhtId,
+          role: "VHT",
+          type: "patient_delivered",
+          title: "Patient Delivered",
+          body: `${pName} (${emergencyType}) was delivered safely to ` +
+            `${clinicName} by ${driverName}.`,
+          status: newStatus,
+          emergencyType,
+        }) : Promise.resolve(),
+        assignedClinicId ? createCaseNotificationOnce({
+          caseId,
+          userId: assignedClinicId,
+          role: "Clinician",
+          type: "patient_arriving",
+          title: "Patient Arriving",
+          body: `${pName} (${emergencyType}) has been delivered by ` +
+            `${driverName}. Please receive the patient.`,
+          status: newStatus,
+          emergencyType,
+        }) : Promise.resolve(),
+        ...adminIds.map((adminId) => createCaseNotificationOnce({
+          caseId,
+          userId: adminId,
+          role: "Admin",
+          type: "patient_delivered",
+          title: "Patient Delivered",
+          body: `${pName} (${emergencyType}) was delivered safely to ` +
+            `${clinicName} by ${driverName}.`,
+          status: newStatus,
+          emergencyType,
+        })),
+      ]);
+    }
+
+    if (newStatus === "completed") {
+      if (assignedAmbulanceId) {
+        await markNotificationsRead({
+          caseId,
+          userId: assignedAmbulanceId,
+          types: ["dispatch_assigned"],
+        });
+      }
+
+      const dischargedAt = after.dischargedAt;
+      const adminIds = dischargedAt ? await userIdsByRole("Admin") : [];
+      const completedType = dischargedAt ? "patient_discharged" : "case_closed";
+      const completedTitle = dischargedAt ? "Patient Discharged" : "Case Closed";
+      const completedBody = dischargedAt ?
+        `${pName} (${emergencyType}) was treated and discharged ` +
+          `from ${clinicName}. The case is complete.` :
+        `${clinicianName} confirmed ${pName} (${emergencyType}) ` +
+          "is okay and closed the case.";
+
+      await Promise.all([
+        vhtId ? createCaseNotificationOnce({
+          caseId,
+          userId: vhtId,
+          role: "VHT",
+          type: completedType,
+          title: completedTitle,
+          body: completedBody,
+          status: newStatus,
+          emergencyType,
+        }) : Promise.resolve(),
+        ...adminIds.map((adminId) => createCaseNotificationOnce({
+          caseId,
+          userId: adminId,
+          role: "Admin",
+          type: "case_completed",
+          title: "Case Completed",
+          body: `${pName} (${emergencyType}) was discharged from ` +
+            `${clinicName} by ${clinicianName}.`,
+          status: newStatus,
+          emergencyType,
+        })),
+      ]);
     }
 
     // "cancelled": Case was cancelled — notify VHT.
     if (vhtId && newStatus === "cancelled") {
-      await notifyUser(
-        vhtId,
-        "Case Cancelled",
-        `Your ${emergencyType} case for ${pName} has been cancelled.`,
-        "case_status_update"
-      );
+      await createCaseNotificationOnce({
+        caseId,
+        userId: vhtId,
+        role: "VHT",
+        type: "case_cancelled",
+        title: "Case Cancelled",
+        body: `Your ${emergencyType} case for ${pName} has been cancelled.`,
+        status: newStatus,
+        emergencyType,
+      });
     }
 
-    // NOTE: The following statuses are intentionally excluded because the
-    // Flutter frontend already sends properly localised notifications for them:
-    //   "advised"    → clinic_case_detail_screen → notifyVhtOfClinicianAdvice
-    //   "dispatched" → admin_case_timeline → notifyOnAmbulanceDispatched (VHT + driver + clinician)
-    //   "delivered"  → ambulance_en_route_screen → notifyOnPatientDelivered (VHT + clinician + admins)
-    //   "completed"  → clinic_case_detail_screen → notifyOnCaseClosed / notifyOnPatientDischarged
+    // NOTE: "advised" remains excluded because clinician advice text is not
+    // carried by the status update alone.
   }
 );
